@@ -1,0 +1,14 @@
+KPI: Kernel MPM timestamp
+init: init first stage started!
+init: init second stage started!
+init: Parsing file /init.rc
+init: processing action (early-init) from (/init
+init: starting service 'ueventd'
+init: starting service 'servicemanager'
+init: starting service 'zygote'
+init: starting service 'hidl_memory'
+init: starting service 'systemcontrol'
+init: starting service 'bootanim'
+init: processing action (sys.boot_completed=1) from (/init
+init: processing action (service.sys.insmod.touch=true) from (/vendor/etc/init/init.gin
+init: Command 'insmod /vendor/lib/modules/cyttsp6_i2c.ko
