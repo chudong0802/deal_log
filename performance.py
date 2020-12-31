@@ -1,3 +1,4 @@
+# version 0.0.2
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill,Border,colors,Side,Alignment
@@ -13,7 +14,7 @@ temporary_file = './analysis_module/performance/temp/'
 
 def judge_file(path,topath):
     if not os.path.exists(template_path):
-        os.mkdir(template_path,1)
+        os.mkdir(template_path)
     if not os.path.exists(topath):
         if 'template_performance.xlsx' in os.listdir(path):
             shutil.copy('template_performance.xlsx',template_path)
@@ -21,12 +22,19 @@ def judge_file(path,topath):
     if not os.path.exists(checkpath):
         with open(checkpath,mode='w',encoding='utf-8') as f:
             pass
-    if not os.path.exists(temporary_file):
-        os.mkdir(temporary_file,1)
+    if os.path.exists(temporary_file):
+        ls = os.listdir(temporary_file)
+        for l in ls:
+            f_path = os.path.join(temporary_file,l)
+            if os.path.isfile(f_path):
+                os.remove(f_path)
+    else:
+        os.mkdir(temporary_file)
 
 def file(path,topath):
     c = 1
     dir_name = os.listdir(path)
+    dir_name.sort()
     namelist = []
     with open(checkpath,encoding='utf-8') as cf:
         lines = cf.readlines()
@@ -38,6 +46,7 @@ def file(path,topath):
         filename = str(sub_path).split('/')[1]
         if os.path.isdir(sub_path):
             sub_fname = os.listdir(sub_path)
+            sub_fname.sort()
             if 'analysis' in sub_fname:
                 if 'analysis.xlsx' in os.listdir(sub_path+'/analysis/'):
                     if filename in namelist:
@@ -47,61 +56,71 @@ def file(path,topath):
                         with open(checkpath,'a+',encoding='utf-8') as cf1:
                             cf1.write(filename + '\n')
                         cf1.close()
+                    try:
+                        data = pd.read_excel(sub_path+'/analysis/analysis.xlsx',sheet_name="index")
+                        df_data = pd.DataFrame(data)  
+                        try:                      
+                            title = '2020-' + str(sub_path).split("/")[-1] + '_集成测试_' + df_data['android_ver'][0]
+                            wb = load_workbook(topath)
+                            ws = wb["app_performance"]
+                            #判断单元格是否为空
+                            #从第11列开始遍历step = 6,找到最近一个为空的单元格
+                            num = 1
+                            for t in range(11,30000,6):
+                                if ws.cell(1,t).value is None:
+                                    num = t
+                                    break
+                            
+                            ws.cell(1,num).value = title
+                            ws.cell(2,num).value= 'RAM(M)'
+                            ws.cell(2,num+1).value= 'CPU(%)'
+                            ws.cell(2,num+2).value= 'APP Size(M)'
+                            ws.cell(2,num+3).value= 'StartupTime(s)'
+                            ws.cell(2,num+4).value= 'IO'
+                            ws.cell(2,num+5).value= '显存(M)'
 
-                    data = pd.read_excel(sub_path+'/analysis/analysis.xlsx',sheet_name="index")
-                    df_data = pd.DataFrame(data)                        
-                    title = '2020-' + str(sub_path).split("/")[-1] + '_集成测试_' + df_data['android_ver'][0]
-                    wb = load_workbook(topath)
-                    ws = wb["app_performance"]
-                    #判断单元格是否为空
-                    #从第11列开始遍历step = 6,找到最近一个为空的单元格
-                    num = 1
-                    for t in range(11,30000,6):
-                        if ws.cell(1,t).value is None:
-                            num = t
-                            break
-                    
-                    ws.cell(1,num).value = title
-                    ws.cell(2,num).value= 'RAM(M)'
-                    ws.cell(2,num+1).value= 'CPU(%)'
-                    ws.cell(2,num+2).value= 'APP Size(M)'
-                    ws.cell(2,num+3).value= 'StartupTime(s)'
-                    ws.cell(2,num+4).value= 'IO'
-                    ws.cell(2,num+5).value= '显存(M)'
+                            for j in range(2,len(ws['B'])):
+                                for k in range(len(df_data['packages'])):
+                                    if df_data['packages'][k] == ws['B'][j].value:
+                                        ws[j+1][num-1].value = df_data['totalmem max'][k]
+                                        ws[j+1][num].value = df_data['cpu max'][k]
+                            wb.save(topath) 
+                        except:
+                            print(str(sub_path).split("/")[-1]+" missing field information")
+                    except:
+                        print(str(sub_path).split("/")[-1]+" no index in ananlysis.xlsx")
 
-                    for j in range(2,len(ws['B'])):
-                        for k in range(len(df_data['packages'])):
-                            if df_data['packages'][k] == ws['B'][j].value:
-                                ws[j+1][num-1].value = df_data['totalmem max'][k]
-                                ws[j+1][num].value = df_data['cpu max'][k]
-                    wb.save(topath)   
-
-                    data2 = pd.read_excel(sub_path+'/analysis/analysis.xlsx',sheet_name="summary_capture")
-                    df_data2 = pd.DataFrame(data2)
-                    wb_sheet2 = load_workbook(topath)
-                    ws2 = wb_sheet2["system_performance"]
-                    r = 1
-                    for r0 in range(1,60000):
-                        if ws2[r0][2].value is None:
-                            r = r0
-                            break
-                    ws2[r][c].value = title
-
-                    for m in range(len(df_data2["CAPTURE_TYPE"])):
-                        if df_data2["CAPTURE_TYPE"][m] == "capture_cpu_idle_low":
-                            ws2[r][c+1].value = 300 - int(df_data2["%idle"][m])
-                        if df_data2["CAPTURE_TYPE"][m] == "capture_mem_available_low":
-                            ws2[r][c+2].value = df_data2["Available_RAM"][m]
-                    wb.save(topath)
-
-                    for m in range(len(df_data2["CAPTURE_TYPE"])):
-                        if df_data2["CAPTURE_TYPE"][m] == "capture_cpu_idle_low":
-                            ws2[r][c+1].value = 300 - int(df_data2["%idle"][m])
-                        if df_data2["CAPTURE_TYPE"][m] == "capture_mem_available_low":
-                            ws2[r][c+2].value = df_data2["Available_RAM"][m]
-                    wb_sheet2.save(topath) 
+                    try:
+                        data2 = pd.read_excel(sub_path+'/analysis/analysis.xlsx',sheet_name="summary_capture")
+                        df_data2 = pd.DataFrame(data2)
+                        wb_sheet2 = load_workbook(topath)
+                        ws2 = wb_sheet2["system_performance"]
+                        r = 1
+                        for r0 in range(1,60000):
+                            if ws2[r0][2].value is None:
+                                r = r0
+                                break
+                        ws2[r][c].value = title
+    
+                        for m in range(len(df_data2["CAPTURE_TYPE"])):
+                            if df_data2["CAPTURE_TYPE"][m] == "capture_cpu_idle_low":
+                                ws2[r][c+1].value = 300 - int(df_data2["%idle"][m])
+                            if df_data2["CAPTURE_TYPE"][m] == "capture_mem_available_low":
+                                ws2[r][c+2].value = df_data2["Available_RAM"][m]
+                        wb.save(topath)
+                        wb.close()
+    
+                        for m in range(len(df_data2["CAPTURE_TYPE"])):
+                            if df_data2["CAPTURE_TYPE"][m] == "capture_cpu_idle_low":
+                                ws2[r][c+1].value = 300 - int(df_data2["%idle"][m])
+                            if df_data2["CAPTURE_TYPE"][m] == "capture_mem_available_low":
+                                ws2[r][c+2].value = df_data2["Available_RAM"][m]
+                        wb_sheet2.save(topath)
+                        wb_sheet2.close()
+                    except:
+                        print(str(sub_path).split("/")[-1]+" no summary_capture in ananlysis.xlsx")
                 else:
-                    print(str(sub_path).split("/")[-1]+" not exist ananlysis.xlsx 文件")
+                    print(str(sub_path).split("/")[-1]+" not exist ananlysis.xlsx file")
                     continue
                 if 'analysis_meminfo.csv' in os.listdir(sub_path+'/analysis/'):
                     mem_data = pd.read_csv(sub_path+'/analysis/analysis_meminfo.csv',encoding='utf-8')
@@ -112,6 +131,7 @@ def file(path,topath):
                     ws_sheet2[r][c+3].value = float(df_mem["non_contig_len(MB)"].min())
                     r += 1
                     wb_sheetname2.save(topath) 
+                    wb_sheetname2.close()
                     print(str(sub_path).split("/")[-1] + " performance data import completed")
                 else:
                     print(str(sub_path).split("/")[-1] + " lack non_contig_len(MB) data")
@@ -211,9 +231,9 @@ def filter_RAM(topath):
         cols = [4]
         for c in range(re,ws.max_column):
             if ws.cell(2,c).value == 'RAM(M)':
-                cols.append(c-1)
-                
+                cols.append(c-1)        
     wb.save(topath)
+
     data = pd.read_excel(topath,usecols=cols)
     df_data = pd.DataFrame(data)
     standard = df_data.iloc[1:,0:1]
@@ -253,7 +273,8 @@ def filter_RAM(topath):
             new_ws.cell(m,num).value = cp_ws[m][n].value
         num +=1 
     wb.save(topath)
-    # print("RAM data filtering completed")
+    wb.close()
+    #print("RAM data filtering completed")
     os.remove(temporary_file + 'test.xlsx')
 
 
@@ -321,17 +342,23 @@ def filter_CPU(topath):
     for n in range(1,cp_ws.max_column):
         for m in range(1,cp_ws.max_row+1):
             new_ws.cell(m,num).value = cp_ws[m][n].value
-        print()
+        #print()
         num +=1 
     wb.save(topath)
-    # print('CPU data filtering completed')
+    wb.close()
+    cp_file.close()
+    #print('CPU data filtering completed')
     os.remove(temporary_file + 'test.xlsx')
     os.rmdir(temporary_file)
-    
 
-if __name__ == "__main__":
+
+def start_report_performance():
     judge_file(path,topath)
     file(path,topath)
     set_solid_border(topath)
     filter_RAM(topath)
     filter_CPU(topath)
+
+
+if __name__ == "__main__":
+    start_report_performance()
